@@ -38,22 +38,24 @@ def inference_api_call(input_data, server_uri):
 def evaluate_model(mlflow_model_server_uri):
 
 	# Load the test dataset
-	test_loader = get_loaders(batch_size=256)
+	test_loader = get_loaders(batch_size=64)
 
     # init metrics
 	correct_pred = 0
 	total = 0
-
+	counter = 0
     # eval loop
 	with torch.no_grad():
 		for images, labels in test_loader:
-			outputs = inference_api_call(images, mlflow_model_server_uri)
+			while counter <= 3:
+				outputs = inference_api_call(images, mlflow_model_server_uri)
 
-			outputs = torch.tensor(outputs["predictions"])
-			outputs = torch.argmax(outputs, dim=1)
+				outputs = torch.tensor(outputs["predictions"])
+				outputs = torch.argmax(outputs, dim=1)
 
-			total += labels.size(0)
-			correct_pred += (outputs == labels).sum().item()
+				total += labels.size(0)
+				correct_pred += (outputs == labels).sum().item()
+				counter += 1
 
 	accuracy = 100 * (correct_pred/total)
 
