@@ -1,0 +1,52 @@
+name: Deploy ML Model to AWS EC2
+
+on:
+  push:
+    # Trigger workflow on push to main branch
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout the repository
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      # Set up Docker
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v2
+
+      # Build Docker image using MLflow
+      - name: Build Docker Image
+        run: |  # CNN_4_layers@champion
+          mlflow models build-docker -m "server/src/artifacts/1/4b0e6b78a8714483942345936f3c502b/artifacts/model" -n ml-model-api
+
+      # Save Docker image as tar file
+      - name: Save Docker Image
+        run: docker save ml-model-api > ml-model-api.tar
+
+      # Transfer Docker image to EC2 instance
+      - name: Transfer Docker Image
+        uses: appleboy/scp-action@v0.1.5
+        with:
+          host: ${{ secrets.AWS_EC2_HOST }}
+          username: ${{ secrets.AWS_EC2_USER }}
+          key: ${{ secrets.AWS_EC2_KEY }}
+          source: ./ml-model-api.tar
+          target: /home/${{ secrets.AWS_EC2_USER }}/ml-model-api.tar
+
+      # Deploy and run Docker container on EC2
+      - name: Run Docker Container on EC2
+        uses: appleboy/ssh-action@v0.1.6
+        with:
+          host: ${{ secrets.AWS_EC2_HOST }}
+          username: ${{ secrets.AWS_EC2_USER }}
+          key: ${{ secrets.AWS_EC2_KEY }}
+          script: |
+            docker load < /home/${{ secrets.AWS_EC2_USER }}/ml-model-api.tar
+            docker stop ml-model-api || true
+            docker rm ml-model-api || true
+            docker run -d -p 5000:8080 --name ml-model-api ml-model-api
