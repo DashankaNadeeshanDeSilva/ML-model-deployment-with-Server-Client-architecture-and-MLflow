@@ -3,7 +3,7 @@ name: Model evaluate via API
 on:
   push:
     branches:
-      - main
+      - dev
 
 jobs:
   test:
